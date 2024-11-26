@@ -1,0 +1,240 @@
+---
+title: "Assignment 4.2: Coffee Shop Sales Time Series Analysis"
+author: "Edgar Rosales"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  - \usepackage[margin=1in]{geometry}
+---
+
+
+
+```{r warning=FALSE, message=FALSE}
+#library(<PACKAGE_DEPENDENCIES>)
+# Load libraries
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(forecast)
+library(zoo)
+
+```
+
+## Data Source
+
+https://www.kaggle.com/datasets/f02d450f34d1dda2c29da2c31e4650dd98562f4887f4dbb1b7b3cd9ec3348191?select=Coffee+Shop+Sales.xlsx
+
+
+## Importing the Data
+
+```{r}
+coffee_sales <- read.csv("/Users/edgarrosales/Desktop/UniversitySandiego/MastersProgram/programA/ADS506/Module7/ADS506-Final/Coffee_Shop_Sales.csv")
+
+str(coffee_sales)
+head(coffee_sales)
+
+```
+```{r}
+# Convert `transaction_date` to Date format
+coffee_sales <- coffee_sales %>%
+  mutate(transaction_date = mdy(transaction_date))  # Using mdy() for "MM/DD/YY" format
+
+# Check for missing or invalid dates
+sum(is.na(coffee_sales$transaction_date))  # Should return 0 if all dates are valid
+
+
+```
+```{r}
+# Aggregate data by week to calculate total weekly sales
+weekly_sales <- coffee_sales %>%
+  mutate(week = floor_date(transaction_date, "week")) %>%  # Extract week
+  group_by(week) %>%
+  summarise(weekly_sales = sum(transaction_qty * unit_price, na.rm = TRUE)) %>%
+  ungroup()
+
+# Aggregate data by day to calculate total daily sales
+daily_sales <- coffee_sales %>%
+  group_by(transaction_date) %>%  # Group by exact transaction date
+  summarise(daily_sales = sum(transaction_qty * unit_price, na.rm = TRUE)) %>%
+  ungroup()
+
+# Check the first few rows to confirm the aggregation worked
+head(weekly_sales)
+head(daily_sales)
+
+
+```
+```{r}
+# Convert the weekly sales data to a time series object
+weekly_sales_ts <- ts(weekly_sales$weekly_sales, start = c(2023, 1), frequency = 52)
+
+# Convert the daily sales data to a time series object
+daily_sales_ts <- ts(daily_sales$daily_sales, start = c(2023, 1, 1), frequency = 365)
+
+# Check the time series structure
+print(weekly_sales_ts)
+print(daily_sales_ts)
+
+
+```
+
+## Time Series Plot
+
+```{r}
+
+ggplot(weekly_sales, aes(x = week, y = weekly_sales)) +
+  geom_line(color = "blue") +
+  labs(title = "Weekly Coffee Shop Sales", x = "Week", y = "Total Weekly Sales") +
+  theme_minimal()
+
+
+```
+```{r}
+ggplot(daily_sales, aes(x = transaction_date, y = daily_sales)) +
+  geom_line(color = "green") +
+  labs(title = "Daily Coffee Shop Sales", x = "Date", y = "Total Daily Sales") +
+  theme_minimal()
+
+```
+
+## Check for Outliers
+
+```{r}
+summary(weekly_sales$weekly_sales)
+summary(daily_sales$daily_sales)
+
+```
+
+## Weekly Sales with Movign Average 
+
+```{r warning=FALSE, message=FALSE}
+
+
+# 3-week moving average to smooth the weekly series
+weekly_sales <- weekly_sales %>%
+  mutate(smoothed_weekly_sales = rollmean(weekly_sales, k = 3, fill = NA))
+
+# Plot original weekly series and smoothed trend line
+ggplot(weekly_sales, aes(x = week)) +
+  geom_line(aes(y = weekly_sales), color = "blue", size = 1) +
+  geom_line(aes(y = smoothed_weekly_sales), color = "red", size = 1, linetype = "dashed") +
+  labs(title = "Weekly Coffee Shop Sales with 3-Week Moving Average",
+       x = "Week", y = "Total Weekly Sales") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::comma)
+
+```
+
+## Daily Sales with Moving Average 
+
+```{r warning=FALSE, message=FALSE}
+# 7-day moving average to smooth the daily series (1 week)
+daily_sales <- daily_sales %>%
+  mutate(smoothed_daily_sales = rollmean(daily_sales, k = 7, fill = NA))
+
+# Plot original daily series and smoothed trend line
+ggplot(daily_sales, aes(x = transaction_date)) +
+  geom_line(aes(y = daily_sales), color = "green", size = 1) +
+  geom_line(aes(y = smoothed_daily_sales), color = "red", size = 1, linetype = "dashed") +
+  labs(title = "Daily Coffee Shop Sales with 7-Day Moving Average",
+       x = "Date", y = "Total Daily Sales") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::comma)
+
+```
+
+
+## Discussion
+
+# Weekly
+The time series plot for weekly coffee shop sales from January to June 2023 reveals a noticeable upward trend, with a significant increase in sales from early to mid-year. Starting with moderate weekly sales in January, there is a steady rise throughout the following months, particularly in April and May, reaching the highest weekly sales by June. The application of a 3-week moving average helps smooth out short-term fluctuations, emphasizing the ongoing growth in customer demand. This trend suggests that the coffee shop is experiencing increasing popularity and that strategies like marketing or product adjustments are likely contributing to the higher sales figures. Given the observed pattern, the business may need to prepare for continued growth by adjusting inventory, staffing, and operational capacity. However, with just six months of weekly data, it is still difficult to identify clear seasonal effects, which would become more evident with a full year's worth of data. Incorporating longer-term sales trends would allow the business to make more accurate predictions regarding demand cycles. Additionally, external factors such as weather, local events, and promotions could further explain spikes in sales and provide better forecasting models.
+
+# Daily 
+The daily sales data for the same period shows more volatility than the weekly data, with sharp fluctuations in daily sales. Despite this, an upward trend emerges as the months progress, particularly toward the end of the observed period. The application of a 7-day moving average smooths out the extreme fluctuations, highlighting a more consistent increase in demand over time. Similar to the weekly analysis, the daily data indicates a rise in sales as the months progress, with a noticeable jump around mid-year. These daily fluctuations may reflect factors such as varying customer traffic, time-of-day effects, or specific promotions. While the daily data provides a finer granularity, its variability makes it harder to detect longer-term trends without smoothing, which is why the weekly data may offer clearer insights into overall growth patterns. To strengthen the analysis and improve forecasting, collecting data across a full year would be ideal, as it would allow for the identification of seasonal variations that could be crucial for operational planning.
+
+...
+## Generating Models 
+```{r}
+# Extract the 'weekly_sales' column as a numeric vector
+weekly_sales_vector <- as.numeric(weekly_sales$weekly_sales)
+
+# Create the time series object
+sales_ts <- ts(weekly_sales_vector, start = c(2023, 1), frequency = 52)
+
+
+```
+
+```{r}
+# Fit the ARIMA model
+arima_model <- auto.arima(sales_ts)
+
+# View the model summary
+summary(arima_model)
+
+```
+
+```{r}
+# Forecast next 12 weeks (adjust 'h' if needed)
+forecast_arima <- forecast(arima_model, h = 12)
+
+# Plot forecast
+plot(forecast_arima)
+
+# View the forecasted values
+forecast_arima
+
+```
+```{r}
+#residuals of the fitted ARIMA model
+checkresiduals(arima_model)
+
+```
+
+```{r}
+# ARIMA(1,1,1) model
+arima_model_111 <- arima(sales_ts, order = c(1, 1, 1))
+
+# View model summary
+summary(arima_model_111)
+
+# Forecast next 12 weeks
+forecast_arima_111 <- forecast(arima_model_111, h = 12)
+
+# Plot forecast
+plot(forecast_arima_111)
+
+# View the forecasted values
+forecast_arima_111
+
+```
+
+```{r}
+# residuals for patterns using the Ljung-Box test and ACF
+checkresiduals(arima_model_111)
+
+```
+```{r}
+# Fit ARIMA(1,1,2) model
+arima_model_112 <- arima(sales_ts, order = c(1, 1, 2))
+
+# View model summary
+summary(arima_model_112)
+
+# Forecast next 12 weeks
+forecast_arima_112 <- forecast(arima_model_112, h = 12)
+
+# Plot forecast
+plot(forecast_arima_112)
+
+# View the forecasted values
+forecast_arima_112
+
+```
+```{r}
+checkresiduals(arima_model_112)
+```
+
+
