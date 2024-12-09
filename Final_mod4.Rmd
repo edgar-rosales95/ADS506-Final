@@ -1,5 +1,5 @@
 ---
-title: "Assignment 2.3: Coffee Shop Sales Time Series Analysis"
+title: "Assignment 4.2: Coffee Shop Sales Time Series Analysis"
 author: "Edgar Rosales"
 date: "`r Sys.Date()`"
 output: 
@@ -156,4 +156,85 @@ The time series plot for weekly coffee shop sales from January to June 2023 reve
 The daily sales data for the same period shows more volatility than the weekly data, with sharp fluctuations in daily sales. Despite this, an upward trend emerges as the months progress, particularly toward the end of the observed period. The application of a 7-day moving average smooths out the extreme fluctuations, highlighting a more consistent increase in demand over time. Similar to the weekly analysis, the daily data indicates a rise in sales as the months progress, with a noticeable jump around mid-year. These daily fluctuations may reflect factors such as varying customer traffic, time-of-day effects, or specific promotions. While the daily data provides a finer granularity, its variability makes it harder to detect longer-term trends without smoothing, which is why the weekly data may offer clearer insights into overall growth patterns. To strengthen the analysis and improve forecasting, collecting data across a full year would be ideal, as it would allow for the identification of seasonal variations that could be crucial for operational planning.
 
 ...
+## Generating Models 
+```{r}
+# Extract the 'weekly_sales' column as a numeric vector
+weekly_sales_vector <- as.numeric(weekly_sales$weekly_sales)
+
+# Create the time series object
+sales_ts <- ts(weekly_sales_vector, start = c(2023, 1), frequency = 52)
+
+
+```
+
+```{r}
+# Fit the ARIMA model
+arima_model <- auto.arima(sales_ts)
+
+# View the model summary
+summary(arima_model)
+
+```
+
+```{r}
+# Forecast next 12 weeks (adjust 'h' if needed)
+forecast_arima <- forecast(arima_model, h = 12)
+
+# Plot forecast
+plot(forecast_arima)
+
+# View the forecasted values
+forecast_arima
+
+```
+```{r}
+#residuals of fitted ARIMA model
+checkresiduals(arima_model)
+
+```
+
+```{r}
+# ARIMA(1,1,1) model
+arima_model_111 <- arima(sales_ts, order = c(1, 1, 1))
+
+# View model summary
+summary(arima_model_111)
+
+# Forecast next 12 weeks
+forecast_arima_111 <- forecast(arima_model_111, h = 12)
+
+# Plot forecast
+plot(forecast_arima_111)
+
+# View the forecasted values
+forecast_arima_111
+
+```
+
+```{r}
+# residuals for patterns using the Ljung-Box test and ACF
+checkresiduals(arima_model_111)
+
+```
+```{r}
+# Fit ARIMA(1,1,2) model
+arima_model_112 <- arima(sales_ts, order = c(1, 1, 2))
+
+# View model summary
+summary(arima_model_112)
+
+# Forecast next 12 weeks
+forecast_arima_112 <- forecast(arima_model_112, h = 12)
+
+# Plot forecast
+plot(forecast_arima_112)
+
+# View the forecasted values
+forecast_arima_112
+
+```
+```{r}
+checkresiduals(arima_model_112)
+```
+
 
